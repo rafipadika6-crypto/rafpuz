@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>RAFPUZ — RAFI PUZZLE</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --panel: #14141c;
+      --line: #2a2a3a;
+      --accent: #7c5cff;
+      --accent2: #ff6bcb;
+      --text: #f0f0f5;
+      --muted: #9a9ab0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(ellipse at top, #1a1530 0%, #0a0a0f 55%);
+      color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px 12px 32px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header { text-align: center; margin-bottom: 10px; }
+    .logo {
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      background: linear-gradient(90deg, #fff, #c4b5fd, #ff6bcb);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .logo span { letter-spacing: 0.04em; font-size: 0.75em; opacity: 0.85; }
+    header p { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .screen { display: none; flex: 1; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    .cam-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--line);
+    }
+    .cam-box video, .cam-box #srcImg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .cam-box video { transform: scaleX(-1); }
+    #srcImg { display: none; }
+    .frame-guide {
+      position: absolute; inset: 10%;
+      border: 2px solid rgba(255,255,255,0.8);
+      border-radius: 10px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.32);
+      pointer-events: none;
+    }
+    .countdown {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      font-size: 88px; font-weight: 900; color: #fff;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.25); z-index: 5;
+    }
+    .countdown.show { display: flex; }
+    .hint { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 6px; min-height: 18px; }
+
+    .diff-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      margin: 6px 0 10px;
+    }
+    .diff-btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 11px;
+      padding: 9px 3px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      line-height: 1.25;
+    }
+    .diff-btn span { display: block; font-size: 10px; color: var(--muted); font-weight: 500; }
+    .diff-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent;
+      color: #fff;
+    }
+    .diff-btn.active span { color: rgba(255,255,255,0.85); }
+
+    .btns {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; margin-top: 4px;
+    }
+    button, .file-label {
+      border: none; border-radius: 12px;
+      padding: 11px 13px; font-weight: 700; font-size: 13px;
+      cursor: pointer; color: #fff;
+      background: var(--panel); border: 1px solid var(--line);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .file-label { background: #1e1e2a; position: relative; overflow: hidden; }
+    .file-label input {
+      position: absolute; width: 1px; height: 1px;
+      opacity: 0; overflow: hidden; clip: rect(0,0,0,0);
+    }
+    .perm-note {
+      font-size: 11px; color: var(--muted);
+      text-align: center; margin-top: 8px; line-height: 1.4;
+      display: none;
+    }
+    .perm-note.show { display: block; }
+
+    /* CROP — fixed layout */
+    .crop-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #111;
+      border: 1px solid var(--line);
+      touch-action: none;
+      flex-shrink: 0;
+    }
+    #cropImg {
+      position: absolute;
+      display: block;
+      max-width: none;
+      transform-origin: 0 0;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .crop-overlay {
+      position: absolute;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+      border-radius: 4px;
+      cursor: move;
+      touch-action: none;
+      z-index: 2;
+    }
+    .crop-handle {
+      position: absolute;
+      width: 26px; height: 26px;
+      right: -13px; bottom: -13px;
+      background: var(--accent);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      cursor: nwse-resize;
+      touch-action: none;
+      z-index: 3;
+    }
+    .crop-loading {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 14px;
+      z-index: 1;
+    }
+
+    /* PUZZLE */
+    .puzzle-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+    .puzzle-head {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+    }
+    .thumb {
+      width: 52px; height: 52px; border-radius: 10px;
+      object-fit: cover; border: 2px solid var(--line); flex-shrink: 0;
+    }
+    .puzzle-head .info { flex: 1; min-width: 0; }
+    .puzzle-head .info strong { display: block; font-size: 13px; }
+    .puzzle-head .info span { color: var(--muted); font-size: 11px; }
+    .timer-box {
+      font-variant-numeric: tabular-nums;
+      font-size: 20px; font-weight: 800;
+      color: #fff;
+      background: #1a1a28;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 5px 12px;
+      min-width: 84px;
+      text-align: center;
+    }
+    .timer-box.warn { color: #ff6b6b; }
+    .board {
+      width: min(100%, 360px);
+      aspect-ratio: 1;
+      display: grid;
+      gap: 2px;
+      background: #111;
+      border-radius: 12px;
+      padding: 2px;
+      touch-action: none;
+      user-select: none;
+      position: relative;
+    }
+    .tile {
+      border-radius: 6px;
+      overflow: hidden;
+      background-size: cover;
+      background-repeat: no-repeat;
+      cursor: grab;
+      transition: transform 0.12s ease, box-shadow 0.12s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+      position: relative;
+      z-index: 1;
+    }
+    .tile.dragging {
+      z-index: 10;
+      transform: scale(1.06);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+      opacity: 0.95;
+      transition: none;
+    }
+    .tile.empty {
+      background: transparent !important;
+      box-shadow: none;
+      cursor: default;
+    }
+    .status-bar { text-align: center; color: var(--muted); font-size: 12px; }
+
+    .win-screen {
+      align-items: center; justify-content: center;
+      text-align: center;
+    }
+    .win-photo {
+      width: min(100%, 270px);
+      aspect-ratio: 1;
+      border-radius: 14px;
+      object-fit: cover;
+      border: 5px solid #fff;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.45);
+      transform: rotate(-2deg);
+      animation: popIn .5s cubic-bezier(.2,1.2,.4,1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.55) rotate(-10deg); opacity: 0; }
+      to { transform: scale(1) rotate(-2deg); opacity: 1; }
+    }
+    .rank-card {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #1c1c2e, #12121c);
+      border: 1px solid var(--line);
+      width: min(100%, 290px);
+    }
+    .rank-badge {
+      width: 72px; height: 72px;
+      margin: 0 auto 6px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 28px;
+      border: 3px solid;
+      box-shadow: 0 0 24px currentColor;
+    }
+    .rank-name { font-size: 1.25rem; font-weight: 800; margin-bottom: 2px; }
+    .rank-time { color: var(--muted); font-size: 12px; }
+    .win-title { font-size: 1.3rem; font-weight: 800; margin: 12px 0 3px; }
+    .win-sub { color: var(--muted); margin-bottom: 10px; font-size: 13px; }
+
+    #confetti {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 100; overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      animation: fall linear forwards;
+    }
+    @keyframes fall {
+      to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+
+    .r-noob { color: #8b8b8b; border-color: #8b8b8b; background: #2a2a2a; }
+    .r-warrior { color: #b0b0b0; border-color: #b0b0b0; background: #333; }
+    .r-elite { color: #5dade2; border-color: #5dade2; background: #1a3a4a; }
+    .r-master { color: #58d68d; border-color: #58d68d; background: #1a3a2a; }
+    .r-gm { color: #2ecc71; border-color: #2ecc71; background: #0f2e1a; }
+    .r-epic { color: #af7ac5; border-color: #af7ac5; background: #2a1a3a; }
+    .r-legend { color: #f4d03f; border-color: #f4d03f; background: #3a3010; }
+    .r-mythic { color: #e74c3c; border-color: #e74c3c; background: #3a1515; }
+    .r-honor { color: #ff6b6b; border-color: #ff6b6b; background: #3a1018; }
+    .r-glory { color: #ff4757; border-color: #ff4757; background: #2a0a10; }
+    .r-immortal { color: #ffd700; border-color: #ffd700; background: #3a2a00; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">RAFPUZ <span>· RAFI PUZZLE</span></div>
+      <p>Foto → pilih area → puzzle → kejar rank!</p>
+    </header>
+
+    <!-- CAPTURE -->
+    <div class="screen active" id="screenCapture">
+      <div class="cam-box">
+        <video id="video" autoplay muted playsinline></video>
+        <img id="srcImg" alt="">
+        <div class="frame-guide"></div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+      <p class="hint" id="hint">Pilih sumber foto</p>
+
+      <div class="diff-row" id="diffRow">
+        <button type="button" class="diff-btn active" data-size="3">9<br><span>3×3</span></button>
+        <button type="button" class="diff-btn" data-size="4">15<br><span>4×4</span></button>
+        <button type="button" class="diff-btn" data-size="5">25<br><span>5×5</span></button>
+        <button type="button" class="diff-btn" data-size="6">36<br><span>6×6</span></button>
+      </div>
+
+      <div class="btns">
+        <label class="file-label">
+          📁 Galeri / WA
+          <input type="file" id="fileInput" accept="image/*">
+        </label>
+        <button type="button" id="btnCam">📷 Kamera</button>
+        <button type="button" class="primary" id="btnShoot" disabled>✦ Lanjut</button>
+      </div>
+      <p class="perm-note" id="permNote">
+        Tekan <b>Izinkan</b> saat browser minta akses kamera.
+      </p>
+    </div>
+
+    <!-- CROP -->
+    <div class="screen" id="screenCrop">
+      <p class="hint" style="margin-top:0">Geser kotak putih · tarik bulatan untuk ubah ukuran</p>
+      <div class="crop-wrap" id="cropWrap">
+        <div class="crop-loading" id="cropLoading">Memuat foto...</div>
+        <img id="cropImg" alt="crop">
+        <div class="crop-overlay" id="cropBox" style="display:none">
+          <div class="crop-handle" id="cropHandle"></div>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button type="button" id="btnCropBack">← Kembali</button>
+        <button type="button" class="primary" id="btnCropOk">✓ Pakai Area Ini</button>
+      </div>
+    </div>
+
+    <!-- PUZZLE -->
+    <div class="screen" id="screenPuzzle">
+      <div class="puzzle-wrap">
+        <div class="puzzle-head">
+          <img class="thumb" id="thumb" alt="">
+          <div class="info">
+            <strong>Geser ubin ke kotak kosong</strong>
+            <span>Drag / ketuk ubin yang menempel kosong</span>
+          </div>
+          <div class="timer-box" id="timer">0:00</div>
+        </div>
+        <div class="board" id="board"></div>
+        <p class="status-bar" id="moves">Gerakan: 0 · 3×3</p>
+        <div class="btns">
+          <button type="button" id="btnShuffle">🔀 Acak</button>
+          <button type="button" id="btnBack">← Foto Baru</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WIN -->
+    <div class="screen win-screen" id="screenWin">
+      <img class="win-photo" id="winPhoto" alt="">
+      <div class="win-title">bisa menang lu </div>
+      <p class="win-sub" id="winSub">Puzzle selesai</p>
+      <div class="rank-card">
+        <div class="rank-badge" id="rankBadge">?</div>
+        <div class="rank-name" id="rankName">—</div>
+        <div class="rank-time" id="rankTime">—</div>
+      </div>
+      <div class="btns" style="margin-top:14px">
+        <button type="button" class="primary" id="btnAgain">mau main lagi gak 
+        </button>
+        <button type="button" id="btnNew">Foto Baru</button>
+      </div>
+    </div>
+  </div>
+  <div id="confetti"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var video = document.getElementById('video');
+  var srcImg = document.getElementById('srcImg');
+  var fileInput = document.getElementById('fileInput');
+  var btnCam = document.getElementById('btnCam');
+  var btnShoot = document.getElementById('btnShoot');
+  var hint = document.getElementById('hint');
+  var permNote = document.getElementById('permNote');
+  var countdownEl = document.getElementById('countdown');
+  var board = document.getElementById('board');
+  var thumb = document.getElementById('thumb');
+  var movesEl = document.getElementById('moves');
+  var timerEl = document.getElementById('timer');
+  var winPhoto = document.getElementById('winPhoto');
+  var confettiBox = document.getElementById('confetti');
+  var rankBadge = document.getElementById('rankBadge');
+  var rankName = document.getElementById('rankName');
+  var rankTime = document.getElementById('rankTime');
+  var winSub = document.getElementById('winSub');
+
+  var cropWrap = document.getElementById('cropWrap');
+  var cropImg = document.getElementById('cropImg');
+  var cropBox = document.getElementById('cropBox');
+  var cropHandle = document.getElementById('cropHandle');
+  var cropLoading = document.getElementById('cropLoading');
+
+  var screens = {
+    capture: document.getElementById('screenCapture'),
+    crop: document.getElementById('screenCrop'),
+    puzzle: document.getElementById('screenPuzzle'),
+    win: document.getElementById('screenWin')
+  };
+
+  var stream = null;
+  var mode = null;
+  var rawPhoto = null;
+  var photoDataUrl = null;
+  var gridSize = 3;
+  var tiles = [];
+  var emptyIndex = 0;
+  var moves = 0;
+  var timerStart = 0;
+  var timerRaf = null;
+  var elapsedMs = 0;
+
+  var crop = { x: 0, y: 0, size: 100 };
+  var imgLayout = { left: 0, top: 0, w: 0, h: 0, scale: 1, natW: 0, natH: 0 };
+
+  var RANKS = [
+    { maxSec: 5,   name: 'Mythic Immortal', cls: 'r-immortal', icon: '👑' },
+    { maxSec: 7,   name: 'Mythic Glory',    cls: 'r-glory',    icon: '🔥' },
+    { maxSec: 10,  name: 'Mythic Honor',    cls: 'r-honor',    icon: '💎' },
+    { maxSec: 15,  name: 'Mythic',          cls: 'r-mythic',   icon: '⚔️' },
+    { maxSec: 20,  name: 'Legend',          cls: 'r-legend',   icon: '🌟' },
+    { maxSec: 25,  name: 'Epic',            cls: 'r-epic',     icon: '💜' },
+    { maxSec: 30,  name: 'Grandmaster',     cls: 'r-gm',       icon: '💚' },
+    { maxSec: 35,  name: 'Master',          cls: 'r-master',   icon: '🟢' },
+    { maxSec: 45,  name: 'Elite',           cls: 'r-elite',    icon: '🔵' },
+    { maxSec: 60,  name: 'Warrior',         cls: 'r-warrior',  icon: '⚪' },
+    { maxSec: 90,  name: 'Warrior',         cls: 'r-warrior',  icon: '⚪' },
+    { maxSec: Infinity, name: 'Noob',       cls: 'r-noob',     icon: '💀' }
+  ];
+
+  function showScreen(name) {
+    Object.keys(screens).forEach(function (k) {
+      screens[k].classList.toggle('active', k === name);
+    });
+  }
+
+  function setReady(ready, msg) {
+    btnShoot.disabled = !ready;
+    if (msg) hint.textContent = msg;
+  }
+
+  document.getElementById('diffRow').addEventListener('click', function (e) {
+    var btn = e.target.closest('.diff-btn');
+    if (!btn) return;
+    document.querySelectorAll('.diff-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    gridSize = parseInt(btn.dataset.size, 10);
+  });
+
+  // Upload
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    cropLoading.style.display = 'flex';
+    cropLoading.textContent = 'Memuat foto...';
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      rawPhoto = e.target.result;
+      stopCam();
+      srcImg.onload = function () {
+        video.style.display = 'none';
+        srcImg.style.display = 'block';
+        mode = 'image';
+        setReady(true, 'Foto siap — tekan Lanjut untuk pilih area');
+        permNote.classList.remove('show');
+      };
+      srcImg.onerror = function () {
+        hint.textContent = 'Gagal load foto. Coba file JPG/PNG lain.';
+        setReady(false);
+      };
+      srcImg.src = rawPhoto;
+    };
+    reader.onerror = function () {
+      hint.textContent = 'Gagal baca file.';
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  });
+
+  // Camera
+  btnCam.addEventListener('click', function () {
+    permNote.classList.add('show');
+    hint.textContent = 'Menunggu izin kamera...';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      hint.textContent = 'Browser tidak support kamera. Pakai Galeri/WA.';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
+      audio: false
+    }).then(function (s) {
+      stream = s;
+      video.srcObject = stream;
+      return video.play();
+    }).then(function () {
+      video.style.display = 'block';
+      srcImg.style.display = 'none';
+      mode = 'camera';
+      setReady(true, 'Kamera aktif — tekan Lanjut');
+      permNote.classList.remove('show');
+    }).catch(function () {
+      hint.textContent = 'Izin ditolak. Pakai Galeri / WA.';
+      setReady(false);
+    });
+  });
+
+  function stopCam() {
+    if (stream) {
+      stream.getTracks().forEach(function (t) { t.stop(); });
+      stream = null;
+    }
+    video.srcObject = null;
+  }
+
+  btnShoot.addEventListener('click', function () {
+    if (btnShoot.disabled) return;
+    if (mode === 'camera') {
+      var n = 3;
+      countdownEl.classList.add('show');
+      countdownEl.textContent = n;
+      var t = setInterval(function () {
+        n--;
+        if (n > 0) countdownEl.textContent = n;
+        else {
+          clearInterval(t);
+          countdownEl.textContent = '';
+          countdownEl.classList.remove('show');
+          grabCameraFrame();
+        }
+      }, 600);
+    } else if (rawPhoto) {
+      openCrop(rawPhoto);
+    }
+  });
+
+  function grabCameraFrame() {
+    var sw = video.videoWidth, sh = video.videoHeight;
+    if (!sw || !sh) { hint.textContent = 'Kamera belum siap.'; return; }
+    var side = Math.min(sw, sh);
+    var sx = (sw - side) / 2;
+    var sy = (sh - side) / 2;
+    var out = document.createElement('canvas');
+    out.width = 800; out.height = 800;
+    var ctx = out.getContext('2d');
+    ctx.translate(800, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, 800, 800);
+    rawPhoto = out.toDataURL('image/jpeg', 0.92);
+    stopCam();
+    openCrop(rawPhoto);
+  }
+
+  // ---------- CROP (fixed) ----------
+  function openCrop(dataUrl) {
+    cropLoading.style.display = 'flex';
+    cropLoading.textContent = 'Memuat foto...';
+    cropBox.style.display = 'none';
+    cropImg.style.opacity = '0';
+
+    // Show screen FIRST so getBoundingClientRect works
+    showScreen('crop');
+
+    function doLayout() {
+      if (!cropImg.naturalWidth) {
+        cropLoading.textContent = 'Gagal memuat foto';
+        return;
+      }
+      layoutCropImage();
+      cropLoading.style.display = 'none';
+      cropImg.style.opacity = '1';
+      cropBox.style.display = 'block';
+    }
+
+    cropImg.onload = function () {
+      // Wait 2 frames so layout is ready after screen switch
+      requestAnimationFrame(function () {
+        requestAnimationFrame(doLayout);
+      });
+    };
+    cropImg.onerror = function () {
+      cropLoading.textContent = 'Gagal menampilkan foto. Coba file lain.';
+    };
+
+    // Force reload even if same src
+    cropImg.removeAttribute('src');
+    cropImg.src = dataUrl;
+  }
+
+  function layoutCropImage() {
+    var rect = cropWrap.getBoundingClientRect();
+    var ww = rect.width;
+    var wh = rect.height;
+    if (ww < 10 || wh < 10) {
+      // Retry shortly if still zero
+      setTimeout(layoutCropImage, 50);
+      return;
+    }
+
+    var nw = cropImg.naturalWidth;
+    var nh = cropImg.naturalHeight;
+    imgLayout.natW = nw;
+    imgLayout.natH = nh;
+
+    var scale = Math.min(ww / nw, wh / nh);
+    imgLayout.scale = scale;
+    imgLayout.w = nw * scale;
+    imgLayout.h = nh * scale;
+    imgLayout.left = (ww - imgLayout.w) / 2;
+    imgLayout.top = (wh - imgLayout.h) / 2;
+
+    cropImg.style.width = imgLayout.w + 'px';
+    cropImg.style.height = imgLayout.h + 'px';
+    cropImg.style.left = imgLayout.left + 'px';
+    cropImg.style.top = imgLayout.top + 'px';
+
+    var minSide = Math.min(imgLayout.w, imgLayout.h);
+    var size = minSide * 0.75;
+    crop.size = size;
+    crop.x = imgLayout.left + (imgLayout.w - size) / 2;
+    crop.y = imgLayout.top + (imgLayout.h - size) / 2;
+    updateCropBox();
+  }
+
+  function updateCropBox() {
+    cropBox.style.left = crop.x + 'px';
+    cropBox.style.top = crop.y + 'px';
+    cropBox.style.width = crop.size + 'px';
+    cropBox.style.height = crop.size + 'px';
+  }
+
+  // Drag / resize crop
+  (function () {
+    var mode = null; // 'move' | 'resize'
+    var sx, sy, sc;
+
+    function down(e, isResize) {
+      e.preventDefault();
+      e.stopPropagation();
+      var pt = e.touches ? e.touches[0] : e;
+      mode = isResize ? 'resize' : 'move';
+      sx = pt.clientX;
+      sy = pt.clientY;
+      sc = { x: crop.x, y: crop.y, size: crop.size };
+    }
+    function move(e) {
+      if (!mode) return;
+      e.preventDefault();
+      var pt = e.touches ? e.touches[0] : e;
+      var dx = pt.clientX - sx;
+      var dy = pt.clientY - sy;
+
+      if (mode === 'resize') {
+        var ns = Math.max(80, sc.size + Math.max(dx, dy));
+        ns = Math.min(ns,
+          imgLayout.left + imgLayout.w - sc.x,
+          imgLayout.top + imgLayout.h - sc.y
+        );
+        crop.size = ns;
+      } else {
+        crop.x = sc.x + dx;
+        crop.y = sc.y + dy;
+        crop.x = Math.max(imgLayout.left, Math.min(crop.x, imgLayout.left + imgLayout.w - crop.size));
+        crop.y = Math.max(imgLayout.top, Math.min(crop.y, imgLayout.top + imgLayout.h - crop.size));
+      }
+      updateCropBox();
+    }
+    function up() { mode = null; }
+
+    cropBox.addEventListener('mousedown', function (e) {
+      if (e.target !== cropHandle) down(e, false);
+    });
+    cropBox.addEventListener('touchstart', function (e) {
+      if (e.target !== cropHandle) down(e, false);
+    }, { passive: false });
+    cropHandle.addEventListener('mousedown', function (e) { down(e, true); });
+    cropHandle.addEventListener('touchstart', function (e) { down(e, true); }, { passive: false });
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
+  })();
+
+  document.getElementById('btnCropBack').addEventListener('click', function () {
+    showScreen('capture');
+    setReady(!!rawPhoto, rawPhoto ? 'Foto siap — tekan Lanjut' : 'Pilih sumber foto');
+  });
+
+  document.getElementById('btnCropOk').addEventListener('click', function () {
+    if (!cropImg.naturalWidth) return;
+
+    var sx = (crop.x - imgLayout.left) / imgLayout.scale;
+    var sy = (crop.y - imgLayout.top) / imgLayout.scale;
+    var ss = crop.size / imgLayout.scale;
+
+    // Clamp
+    sx = Math.max(0, Math.min(sx, imgLayout.natW - 1));
+    sy = Math.max(0, Math.min(sy, imgLayout.natH - 1));
+    ss = Math.min(ss, imgLayout.natW - sx, imgLayout.natH - sy);
+
+    var out = document.createElement('canvas');
+    out.width = 720;
+    out.height = 720;
+    var ctx = out.getContext('2d');
+    ctx.drawImage(cropImg, sx, sy, ss, ss, 0, 0, 720, 720);
+    photoDataUrl = out.toDataURL('image/jpeg', 0.92);
+    startPuzzle(photoDataUrl);
+  });
+
+  // ---------- TIMER ----------
+  function startTimer() {
+    timerStart = performance.now();
+    elapsedMs = 0;
+    function tick() {
+      elapsedMs = performance.now() - timerStart;
+      var sec = Math.floor(elapsedMs / 1000);
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+      timerEl.classList.toggle('warn', sec >= 60);
+      timerRaf = requestAnimationFrame(tick);
+    }
+    cancelAnimationFrame(timerRaf);
+    timerRaf = requestAnimationFrame(tick);
+  }
+  function stopTimer() {
+    cancelAnimationFrame(timerRaf);
+    elapsedMs = performance.now() - timerStart;
+  }
+  function getRank(sec) {
+    for (var i = 0; i < RANKS.length; i++) {
+      if (sec <= RANKS[i].maxSec) return RANKS[i];
+    }
+    return RANKS[RANKS.length - 1];
+  }
+
+  // ---------- PUZZLE ----------
+  function startPuzzle(dataUrl) {
+    thumb.src = dataUrl;
+    winPhoto.src = dataUrl;
+    moves = 0;
+    movesEl.textContent = 'Gerakan: 0 · ' + gridSize + '×' + gridSize;
+    buildBoard(dataUrl);
+    shuffleBoard();
+    showScreen('puzzle');
+    startTimer();
+  }
+
+  function buildBoard(dataUrl) {
+    var n = gridSize;
+    var total = n * n;
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+    board.style.gridTemplateRows = 'repeat(' + n + ', 1fr)';
+    tiles = [];
+    for (var i = 0; i < total; i++) {
+      var el = document.createElement('div');
+      el.className = 'tile' + (i === total - 1 ? ' empty' : '');
+      el.dataset.pos = i;
+      if (i < total - 1) {
+        var row = Math.floor(i / n);
+        var col = i % n;
+        el.style.backgroundImage = 'url(' + dataUrl + ')';
+        el.style.backgroundSize = (n * 100) + '%';
+        el.style.backgroundPosition = (col * 100 / (n - 1)) + '% ' + (row * 100 / (n - 1)) + '%';
+      }
+      board.appendChild(el);
+      tiles.push(i);
+    }
+    emptyIndex = total - 1;
+    bindBoardInput();
+  }
+
+  function refreshBoard() {
+    var n = gridSize;
+    var total = n * n;
+    var children = board.children;
+    for (var i = 0; i < total; i++) {
+      var el = children[i];
+      var id = tiles[i];
+      el.dataset.pos = i;
+      if (id === total - 1) {
+        el.className = 'tile empty';
+        el.style.backgroundImage = '';
+      } else {
+        el.className = 'tile';
+        var row = Math.floor(id / n);
+        var col = id % n;
+        el.style.backgroundImage = 'url(' + photoDataUrl + ')';
+        el.style.backgroundSize = (n * 100) + '%';
+        el.style.backgroundPosition = (col * 100 / (n - 1)) + '% ' + (row * 100 / (n - 1)) + '%';
+      }
+    }
+  }
+
+  function isAdjacent(a, b) {
+    var n = gridSize;
+    return (Math.abs(Math.floor(a / n) - Math.floor(b / n)) + Math.abs((a % n) - (b % n))) === 1;
+  }
+
+  function tryMove(pos) {
+    if (!isAdjacent(pos, emptyIndex)) return false;
+    var tmp = tiles[pos];
+    tiles[pos] = tiles[emptyIndex];
+    tiles[emptyIndex] = tmp;
+    emptyIndex = pos;
+    moves++;
+    refreshBoard();
+    movesEl.textContent = 'Gerakan: ' + moves + ' · ' + gridSize + '×' + gridSize;
+    checkWin();
+    return true;
+  }
+
+  function bindBoardInput() {
+    var startPos = null;
+    var startX = 0, startY = 0;
+    var activeEl = null;
+
+    function getPos(el) {
+      if (!el || !el.classList.contains('tile')) return null;
+      return parseInt(el.dataset.pos, 10);
+    }
+
+    function onStart(e) {
+      var el = e.target.closest('.tile');
+      if (!el || el.classList.contains('empty')) return;
+      var pos = getPos(el);
+      if (pos === null || !isAdjacent(pos, emptyIndex)) return;
+      e.preventDefault();
+      startPos = pos;
+      activeEl = el;
+      el.classList.add('dragging');
+      var pt = e.touches ? e.touches[0] : e;
+      startX = pt.clientX;
+      startY = pt.clientY;
+    }
+
+    function onEnd(e) {
+      if (startPos === null) return;
+      var pt = (e.changedTouches && e.changedTouches[0]) || e;
+      var dx = (pt.clientX || 0) - startX;
+      var dy = (pt.clientY || 0) - startY;
+      if (activeEl) activeEl.classList.remove('dragging');
+
+      if (Math.abs(dx) < 14 && Math.abs(dy) < 14) {
+        tryMove(startPos);
+      } else {
+        var n = gridSize;
+        var er = Math.floor(emptyIndex / n), ec = emptyIndex % n;
+        var pr = Math.floor(startPos / n), pc = startPos % n;
+        var ok = false;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          if (dx > 0 && er === pr && ec === pc + 1) ok = true;
+          if (dx < 0 && er === pr && ec === pc - 1) ok = true;
+        } else {
+          if (dy > 0 && ec === pc && er === pr + 1) ok = true;
+          if (dy < 0 && ec === pc && er === pr - 1) ok = true;
+        }
+        if (ok) tryMove(startPos);
+      }
+      startPos = null;
+      activeEl = null;
+    }
+
+    board.onpointerdown = onStart;
+    board.onpointerup = onEnd;
+    board.onpointercancel = function () {
+      if (activeEl) activeEl.classList.remove('dragging');
+      startPos = null;
+      activeEl = null;
+    };
+    board.onclick = function (e) {
+      var el = e.target.closest('.tile');
+      if (!el || el.classList.contains('empty')) return;
+      var pos = getPos(el);
+      if (pos !== null) tryMove(pos);
+    };
+  }
+
+  function shuffleBoard() {
+    var n = gridSize;
+    var total = n * n;
+    var steps = n * n * 16 + Math.floor(Math.random() * 40);
+    for (var s = 0; s < steps; s++) {
+      var neighbors = [];
+      for (var i = 0; i < total; i++) {
+        if (isAdjacent(i, emptyIndex)) neighbors.push(i);
+      }
+      var pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+      var tmp = tiles[pick];
+      tiles[pick] = tiles[emptyIndex];
+      tiles[emptyIndex] = tmp;
+      emptyIndex = pick;
+    }
+    refreshBoard();
+    moves = 0;
+    movesEl.textContent = 'Gerakan: 0 · ' + gridSize + '×' + gridSize;
+  }
+
+  function checkWin() {
+    var total = gridSize * gridSize;
+    for (var i = 0; i < total; i++) {
+      if (tiles[i] !== i) return;
+    }
+    stopTimer();
+    var sec = elapsedMs / 1000;
+    var rank = getRank(sec);
+    setTimeout(function () { showWin(sec, rank); }, 180);
+  }
+
+  function showWin(sec, rank) {
+    var m = Math.floor(sec / 60);
+    var s = Math.floor(sec % 60);
+    var ms = Math.floor((sec % 1) * 100);
+    var timeStr = m + ':' + (s < 10 ? '0' : '') + s + '.' + (ms < 10 ? '0' : '') + ms;
+
+    rankBadge.className = 'rank-badge ' + rank.cls;
+    rankBadge.textContent = rank.icon;
+    rankName.textContent = rank.name;
+    rankName.style.color = getComputedStyle(rankBadge).color;
+    rankTime.textContent = 'Waktu: ' + timeStr + ' · ' + moves + ' gerakan';
+    winSub.textContent = gridSize + '×' + gridSize + ' selesai!';
+    showScreen('win');
+    launchConfetti();
+  }
+
+  document.getElementById('btnShuffle').addEventListener('click', function () {
+    shuffleBoard();
+    startTimer();
+  });
+  document.getElementById('btnBack').addEventListener('click', goHome);
+  document.getElementById('btnAgain').addEventListener('click', function () {
+    confettiBox.innerHTML = '';
+    startPuzzle(photoDataUrl);
+  });
+  document.getElementById('btnNew').addEventListener('click', goHome);
+
+  function goHome() {
+    confettiBox.innerHTML = '';
+    stopTimer();
+    showScreen('capture');
+    setReady(false, 'Pilih sumber foto');
+    srcImg.style.display = 'none';
+    video.style.display = 'block';
+    mode = null;
+    rawPhoto = null;
+  }
+
+  function launchConfetti() {
+    confettiBox.innerHTML = '';
+    var colors = ['#7c5cff', '#ff6bcb', '#3dd68c', '#ffd166', '#4cc9f0', '#f72585', '#ffd700', '#fff'];
+    for (var i = 0; i < 65; i++) {
+      var p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.top = (-10 - Math.random() * 20) + 'vh';
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.width = (5 + Math.random() * 9) + 'px';
+      p.style.height = (5 + Math.random() * 9) + 'px';
+      p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      p.style.animationDuration = (1.6 + Math.random() * 2.4) + 's';
+      p.style.animationDelay = (Math.random() * 0.5) + 's';
+      confettiBox.appendChild(p);
+    }
+    setTimeout(function () { confettiBox.innerHTML = ''; }, 4200);
+  }
+})();
+</script>
+</body>
+</html>
